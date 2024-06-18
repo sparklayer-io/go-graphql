@@ -93,8 +93,11 @@ func (c *Client) do(ctx context.Context, op operationType, v any, variables map[
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("non-200 OK status code: %v body: %q", resp.Status, body)
+		return ErrResponseStatusNotOK{
+			body:       resp.Body,
+			statusCode: resp.StatusCode,
+			status:     resp.Status,
+		}
 	}
 	var out struct {
 		Data       *json.RawMessage
@@ -143,10 +146,32 @@ func (e errors) Error() string {
 	return e[0].Message
 }
 
+type ErrResponseStatusNotOK struct {
+	body       io.ReadCloser
+	status     string
+	statusCode int
+}
+
+func (e ErrResponseStatusNotOK) Error() string {
+	return fmt.Sprintf("non-200 OK status code: %s", e.status)
+}
+
+func (e ErrResponseStatusNotOK) Body() io.ReadCloser {
+	return e.body
+}
+
+func (e ErrResponseStatusNotOK) Status() string {
+	return e.status
+}
+
+func (e ErrResponseStatusNotOK) StatusCode() int {
+	return e.statusCode
+}
+
 type operationType uint8
 
 const (
 	queryOperation operationType = iota
 	mutationOperation
-	//subscriptionOperation // Unused.
+	// subscriptionOperation // Unused.
 )
